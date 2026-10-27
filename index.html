@@ -242,9 +242,6 @@
   @keyframes pop{ from{ transform:scale(0.85); opacity:0; } to{ transform:scale(1); opacity:1; } }
   .winner-card .eyebrow{ font-size:11px; letter-spacing:0.28em; font-weight:700; color:var(--magenta); text-transform:uppercase; }
   .winner-card .name{ font-weight:900; font-size:clamp(28px,6vw,40px); color:var(--white); margin:14px 0 4px; word-break:break-word; }
-  .winner-card .sub{ color:var(--muted); font-size:13px; margin-bottom:26px; font-weight:600; letter-spacing:0.04em; }
-  .winner-card button{ font-weight:700; font-size:14px; color:var(--canvas); background:var(--cyan); padding:12px 32px; border-radius:100px; transition:background 0.15s ease; }
-  .winner-card button:hover{ background:var(--white); }
 
   .confetti-piece{ position:fixed; top:-20px; width:9px; height:14px; border-radius:2px; pointer-events:none; z-index:60; animation:fall linear forwards; }
   @keyframes fall{ to{ transform:translateY(105vh) rotate(540deg); opacity:0.9; } }
@@ -344,7 +341,7 @@
         <div class="corner br"></div>
         <div class="name-slot">
           <span class="who" id="nameSlot">—</span>
-          <div class="countdown" id="countdown">20</div>
+          <div class="countdown" id="countdown">10</div>
         </div>
       </div>
       <div class="status-label" id="statusLabel">Add participants to begin</div>
@@ -364,10 +361,8 @@
 
 <div class="winner-overlay" id="winnerOverlay">
   <div class="winner-card">
-    <div class="eyebrow">Target identified</div>
+    <div class="eyebrow">Winner</div>
     <div class="name" id="winnerName">—</div>
-    <div class="sub" id="winnerSub"></div>
-    <button id="closeWinner">Continue</button>
   </div>
 </div>
 
@@ -396,8 +391,6 @@
   const removeToggle= document.getElementById('removeToggle');
   const winnerOverlay = document.getElementById('winnerOverlay');
   const winnerName  = document.getElementById('winnerName');
-  const winnerSub   = document.getElementById('winnerSub');
-  const closeWinner = document.getElementById('closeWinner');
   const presentBtn  = document.getElementById('presentBtn');
   const exitPresentBtn = document.getElementById('exitPresentBtn');
   const logoImg     = document.getElementById('logoImg');
@@ -461,6 +454,7 @@
   }));
 
   let spinning = false;
+  let drawn = false;          // single draw: locks after the first winner
   let countInterval = null;
 
   function renderPool(){
@@ -478,8 +472,8 @@
       chips.appendChild(chip);
     });
     poolCount.textContent = state.pool.length;
-    drawBtn.disabled = state.pool.length === 0 || spinning;
-    if(!spinning){
+    drawBtn.disabled = state.pool.length === 0 || spinning || drawn;
+    if(!spinning && !drawn){
       statusLabel.textContent = state.pool.length === 0
         ? 'Add participants to begin'
         : `${state.pool.length} ticket${state.pool.length===1?'':'s'} loaded — ready to draw`;
@@ -542,11 +536,11 @@
   }
 
   drawBtn.addEventListener('click', () => {
-    if(spinning || state.pool.length === 0) return;
+    if(spinning || drawn || state.pool.length === 0) return;
     ensureAudio();
     spinning = true;
     drawBtn.disabled = true;
-    statusLabel.textContent = 'Scanning targets';
+    statusLabel.textContent = 'Scanning';
     statusLabel.className = 'status-label scanning';
     reticleWrap.classList.remove('locked','building');
     reticleWrap.classList.add('scanning');
@@ -556,7 +550,7 @@
     const winner = state.pool[winnerIdx];
     const startTime = performance.now();
 
-    // whole-number countdown 20..1, one per second
+    // whole-number countdown 10..1, one per second
     let current = START_COUNT;
     showNumber(current);
     countInterval = setInterval(() => {
@@ -613,7 +607,7 @@
     impact();
     nameSlot.textContent = winner;
 
-    statusLabel.textContent = 'Target identified';
+    statusLabel.textContent = 'Winner';
     statusLabel.className = 'status-label locked';
 
     state.winners.push(winner);
@@ -621,8 +615,12 @@
     renderHistory();
     launchConfetti();
 
+    // single draw: lock the draw button
+    drawn = true;
+    spinning = false;
+    drawBtn.disabled = true;
+
     winnerName.textContent = winner;
-    winnerSub.textContent = `Draw #${state.winners.length}`;
     // let the reticle reveal land first, then bring up the card
     setTimeout(() => winnerOverlay.classList.add('show'), 750);
   }
@@ -638,12 +636,6 @@
       historyList.appendChild(li);
     });
   }
-
-  closeWinner.addEventListener('click', () => {
-    winnerOverlay.classList.remove('show');
-    spinning = false;
-    renderPool();
-  });
 
   function launchConfetti(){
     const colors = ['#7B2BFF','#4500B6','#00E5FF','#FF2E86','#FFFFFF'];
